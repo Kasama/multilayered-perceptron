@@ -1,122 +1,159 @@
 import numpy as np
 
+
 def f(net):
     return 1 / (1 + np.exp(-net))
+
 
 def df_dnet(net):
     return f(net) * (1 - f(net))
 
+
 class my_little_poney:
     def __init__(
             self,
-            input_layer_neurons = 2,
-            hidden_layer_neurons = 2,
-            output_layer_neurons = 1,
-            f_function = f,
-            df_dnet_function = df_dnet
+            input_layer_neurons=2,
+            hidden_layer_neurons=2,
+            output_layer_neurons=1,
+            f_function=f,
+            df_dnet_function=df_dnet
             ):
-        self.layers = {}
+        # randomly initialize hidden layer weights
+        self.hidden_weights = np.random.rand(
+                hidden_layer_neurons,
+                input_layer_neurons + 1
+                ) - 0.5
+        # randomly initialize output layer weights
+        self.output_weights = np.random.rand(
+                output_layer_neurons,
+                hidden_layer_neurons + 1
+                ) - 0.5
 
-        self.f_function = f_function
-        self.df_dnet_function = df_dnet_function
+        self.input_layer_neurons = input_layer_neurons
+        self.hidden_layer_neurons = hidden_layer_neurons
+        self.output_layer_neurons = output_layer_neurons
 
-        self.layers['hidden'] = np.random.uniform(
-                -0.5, 0.5,
-                 hidden_layer_neurons * (input_layer_neurons + 1)
-        ).reshape(hidden_layer_neurons, input_layer_neurons + 1)
+        self.f = f_function
+        self.df_dnet = df_dnet_function
+    # end __init__
 
-        self.layers['output'] = np.random.uniform(
-                -0.5, 0.5,
-                 output_layer_neurons * (hidden_layer_neurons + 1)
-        ).reshape(output_layer_neurons, hidden_layer_neurons + 1)
+    def forward(self, input_values):
 
-    def forward(self, input_pattern):
-        size_hidden_layer = self.layers['hidden'].shape[0]
-        size_output_layer = self.layers['output'].shape[0]
+        input_values = [float(x) for x in np.transpose(input_values)]
 
-        f_h = np.zeros(size_hidden_layer)
-        df_h = np.zeros(size_hidden_layer)
-        for j in range(0, size_hidden_layer):
-            input_pattern_normalized = input_pattern + [1]
-            net_h = np.dot(input_pattern_normalized, self.layers['hidden'][j])
-            f_h[j] = self.f_function(net_h)
-            df_h[j] = self.df_dnet_function(net_h)
+        # initialize hidden neuron's fs and dfs
+        # f_h = np.zeros(self.hidden_layer_neurons)
+        # df_h = np.zeros(self.hidden_layer_neurons)
+        f_h = [0]*self.hidden_layer_neurons
+        df_h = [0]*self.hidden_layer_neurons
 
-        f_o = np.zeros(size_output_layer)
-        df_o = np.zeros(size_output_layer)
-        for j in range(0, size_output_layer):
-            f_h_normalized = f_h + [1]
-            net_o = np.dot(f_h_normalized, self.layers['output'][j])
-            f_o[j] = self.f_function(net_o)
-            df_o[j] = self.df_dnet_function(net_o)
+        # for each hidden neuron
+        for neuron in range(self.hidden_layer_neurons):
+            # net = f_h * hidden_weights + b
+            net_h = np.dot(
+                    # np.append(input_values, [1]),
+                    input_values + [1],
+                    self.hidden_weights[neuron, :]
+                    )
+            f_h[neuron] = self.f(net_h)
+            df_h[neuron] = self.df_dnet(net_h)
+        # end for
 
-        fwd = {}
-        fwd['f_h'] = f_h
-        fwd['f_o'] = f_o
-        fwd['df_h'] = df_h
-        fwd['df_o'] = df_o
+        # initialize output neuron's fs and dfs
+        # f_o = np.zeros(self.output_layer_neurons)
+        # df_o = np.zeros(self.output_layer_neurons)
+        f_o = [0]*self.output_layer_neurons
+        df_o = [0]*self.output_layer_neurons
 
-        return fwd
+        # for each output neuron
+        for neuron in range(self.output_layer_neurons):
+            # net = f_h * output_weights + b
+            net_o = np.dot(
+                    np.append(f_h, [1]),
+                    self.output_weights[neuron, :]
+                    )
+            f_o[neuron] = self.f(net_o)
+            df_o[neuron] = self.df_dnet(net_o)
+        # end for
 
-    def backpropagation(self, X, Y, eta = 0.1, threshold = 1e-2):
-        squared_error = 2 * threshold
-        while squared_error > threshold:
-            squared_error = 0
-            for p in range(0, len(X)):
-                x_p = np.array(X[p])
-                y_p = np.array(Y[p])
+        return (f_h, df_h, f_o, df_o)
+    # end forward
 
-                fwd = self.forward(x_p)
-                o_p = fwd['f_o']
-                delta_p = y_p - o_p
+    def backpropagation(self, X, Y, eta=0.1, threshold=1e-2):
+        squared_err = 2 * threshold
 
-                squared_error = squared_error + (delta_p ** 2)
+        while squared_err > threshold:
+            squared_err = 0
+            for test in range(len(X)):
+                x = X[test]  # get test line
+                y = Y[test]  # get expected result line
 
-                delta_output = delta_p * fwd['df_o']
+                f_h, df_h, f_o, df_o = self.forward(x)
 
-                w_length = self.layers['output'].shape[1] - 1
-                delta_hidden = fwd['df_h'] * (
-                        np.dot(delta_output, self.layers['output'][:,0:(w_length-1)])
+                f_h = [float(x) for x in f_h]
+
+                delta = y - f_o  # difference between expected and real result
+
+                # squared error += sum delta^2
+                squared_err += np.sum(np.dot(delta, delta))
+
+                # generalized delta rule
+                delta_o = np.multiply(delta, df_o)
+
+                w_length = self.hidden_layer_neurons - 1
+                delta_h = np.multiply(
+                        df_h,
+                        np.dot(delta_o, self.output_weights[:, w_length])
                         )
 
-                self.layers['output'] = self.layers['output'] + (
-                        eta * (np.dot(delta_output, fwd['f_h']))
+                # update output layer weigths
+                a = np.dot(
+                        # np.transpose([np.append(f_h, [1])]), delta_o
+                        np.transpose(np.matrix(f_h + [1])), delta_o
                         )
 
-                self.layers['hidden'] = self.layers['hidden'] + (
-                        eta * (np.dot(delta_hidden, (x_p + [1])))
+                self.output_weights += eta * np.transpose(a)
+                # update hidden layer weigths
+
+                x = [float(b) for b in np.transpose(x)]
+
+                # c = np.transpose([np.append(x, [1])])
+
+                self.hidden_weights += eta * np.transpose(
+                        np.multiply(
+                            delta_h,
+                            np.transpose(np.matrix(np.transpose(x + [1])))
+                            )
                         )
 
-            squared_error = squared_error / X.shape[0]
-            print("Avg sqr err: " + str(squared_error))
-        return self
+            # end for
+            squared_err = squared_err/X.shape[0]
+            print("Average squared error: " + str(squared_err))
+        # end while
+    # end backpropagation
+# end my little poney class
 
-# main
-def main():
-    dataset = [[0,0,0],
-               [0,1,1],
-               [1,0,1],
-               [1,1,0]]
 
-    #X = dataset[:,0:2]
-    #Y = dataset[:,2]
-    X = [[0,0],[0,1],[1,0],[1,1]]
-    Y = [0,1,1,0]
+def xor():
+    dataset = np.loadtxt('xor.csv', skiprows=1)
+    X = dataset[:, 0:len(dataset[0]) - 1]
+    Y = dataset[:, len(dataset[0]) - 1:len(dataset[0])]
 
-    print("Inputs: " + str(X))
+    print(X)
+    print(Y)
 
-    mlp = my_little_poney(2, 2, 1)
-    mlp.backpropagation(X, Y)
+    model = my_little_poney(2, 2, 1)
+    model.backpropagation(np.matrix(X), np.matrix(Y), 0.5, 1e-2)
 
-    for p in range(0,4):
-        x_p = X[p]
-        y_p = Y[p]
+    for p in range(len(X)):
+        x_p = X[p, :]
+        y_p = Y[p, :]
 
-        fwd = mlp.forward(x_p)
-
+        (f_h, df_h, f_o, df_o) = model.forward(x_p)
         print(x_p)
         print(y_p)
-        print(fwd['f_o'])
+        print(f_o)
+
 
 if __name__ == "__main__":
-    main()
+    xor()
