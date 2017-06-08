@@ -9,33 +9,79 @@ def df_dnet(net):
     return f(net) * (1 - f(net))
 
 
-class my_little_poney:
+class mlp:
     def __init__(
             self,
             input_layer_neurons=2,
             hidden_layer_neurons=2,
             output_layer_neurons=1,
             f_function=f,
-            df_dnet_function=df_dnet
+            df_dnet_function=df_dnet,
+            hidden_weights=None,
+            output_weights=None
             ):
-        # randomly initialize hidden layer weights
-        self.hidden_weights = np.random.rand(
-                hidden_layer_neurons,
-                input_layer_neurons + 1
-                ) - 0.5
-        # randomly initialize output layer weights
-        self.output_weights = np.random.rand(
-                output_layer_neurons,
-                hidden_layer_neurons + 1
-                ) - 0.5
 
+        # randomly initialize hidden layer weights or use given
+        if (hidden_weights):
+            self.hidden_weights = hidden_weights
+        else:
+            self.hidden_weights = mlp.generate_weights(
+                    hidden_layer_neurons, input_layer_neurons + 1
+                    )
+
+        # randomly initialize output layer weights
+        if (output_weights):
+            self.output_weights = output_weights
+        else:
+            self.output_weights = mlp.generate_weights(
+                    output_layer_neurons, hidden_layer_neurons + 1
+                    )
+
+        # Assign layer sizes to instance variables
         self.input_layer_neurons = input_layer_neurons
         self.hidden_layer_neurons = hidden_layer_neurons
         self.output_layer_neurons = output_layer_neurons
 
+        # Assign activation function and derivative to instance variables
         self.f = f_function
         self.df_dnet = df_dnet_function
-    # end __init__
+    # ===== end __init__
+
+    @staticmethod
+    def generate_weights(x, y):
+        return np.random.rand(x, y) - 0.5
+
+    @staticmethod
+    def train(
+            X, Y,
+            hidden_layer_neurons=2,
+            f_function=f,
+            df_dnet_function=df_dnet,
+            eta=0.1,
+            threshold=1e-2
+            ):
+        # normalize X and Y
+        X = np.matrix(X)
+        Y = np.matrix(Y)
+
+        # Guess input and output layer sizes
+        input_layer_neurons = X.shape[1]
+        output_layer_neurons = Y.shape[1]
+
+        # Initialize MLP
+        model = mlp(
+                input_layer_neurons,
+                hidden_layer_neurons,
+                output_layer_neurons,
+                f_function,
+                df_dnet_function
+                )
+
+        # Train the network using given data
+        model.backpropagation(X, Y, eta, threshold)
+
+        return model
+    # ===== end train
 
     def forward(self, input_values):
 
@@ -57,7 +103,7 @@ class my_little_poney:
                     )
             f_h[neuron] = self.f(net_h)
             df_h[neuron] = self.df_dnet(net_h)
-        # end for
+        # ===== end for
 
         # initialize output neuron's fs and dfs
         # f_o = np.zeros(self.output_layer_neurons)
@@ -74,10 +120,10 @@ class my_little_poney:
                     )
             f_o[neuron] = self.f(net_o)
             df_o[neuron] = self.df_dnet(net_o)
-        # end for
+        # ===== end for
 
         return (f_h, df_h, f_o, df_o)
-    # end forward
+    # ===== end forward
 
     def backpropagation(self, X, Y, eta=0.1, threshold=1e-2):
         squared_err = 2 * threshold
@@ -126,12 +172,12 @@ class my_little_poney:
                             )
                         )
 
-            # end for
+            # ===== end for
             squared_err = squared_err/X.shape[0]
             print("Average squared error: " + str(squared_err))
-        # end while
-    # end backpropagation
-# end my little poney class
+        # ===== end while
+    # ===== end backpropagation
+# ===== end my little poney class
 
 
 def xor():
@@ -142,8 +188,9 @@ def xor():
     print(X)
     print(Y)
 
-    model = my_little_poney(2, 2, 1)
-    model.backpropagation(np.matrix(X), np.matrix(Y), 0.5, 1e-2)
+    # model = mlp(2, 2, 1)
+    # model.backpropagation(np.matrix(X), np.matrix(Y), 0.5, 1e-2)
+    model = mlp.train(X, Y, eta=.1)
 
     for p in range(len(X)):
         x_p = X[p, :]
