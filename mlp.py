@@ -1,8 +1,9 @@
 import numpy as np
+from math import exp
 
 
 def f(net):
-    return 1 / (1 + np.exp(-net))
+    return 1 / (1 + exp(-net))
 
 
 def df_dnet(net):
@@ -22,20 +23,23 @@ class mlp:
             ):
 
         # randomly initialize hidden layer weights or use given
-        if (hidden_weights):
-            self.hidden_weights = hidden_weights
-        else:
+        if (hidden_weights is None):
             self.hidden_weights = mlp.generate_weights(
                     hidden_layer_neurons, input_layer_neurons + 1
                     )
+        else:
+            self.hidden_weights = hidden_weights
 
         # randomly initialize output layer weights
-        if (output_weights):
-            self.output_weights = output_weights
-        else:
+        if (output_weights is None):
             self.output_weights = mlp.generate_weights(
                     output_layer_neurons, hidden_layer_neurons + 1
                     )
+        else:
+            self.output_weights = output_weights
+
+        print('hidden: ', self.hidden_weights.shape)
+        print('output: ', self.output_weights.shape)
 
         # Assign layer sizes to instance variables
         self.input_layer_neurons = input_layer_neurons
@@ -62,11 +66,14 @@ class mlp:
             ):
         # normalize X and Y
         X = np.matrix(X)
-        Y = np.matrix(Y)
+        Y = np.transpose(np.matrix(Y))
+
+        print("Xmatrix shape: ", X.shape)
+        print("Ymatrix shape: ", Y.shape)
 
         # Guess input and output layer sizes
         input_layer_neurons = X.shape[1]
-        output_layer_neurons = Y.shape[1]
+        output_layer_neurons = Y.shape[0]
 
         # Initialize MLP
         model = mlp(
@@ -82,6 +89,38 @@ class mlp:
 
         return model
     # ===== end train
+
+    @staticmethod
+    def import_weights(hidden_file=None, output_file=None):
+        if (hidden_file is None):
+            hidden_file = 'hidden_layer_weights.npy'
+        if (output_file is None):
+            output_file = 'output_layer_weights.npy'
+        hidden = np.load(hidden_file)
+        output = np.load(output_file)
+
+        hidden_neurons = hidden.shape[0]
+        input_neurons = hidden.shape[1] - 1
+        output_neurons = output.shape[0]
+
+        if (hidden_neurons != (output.shape[1] - 1)):
+            raise "sizes do not match"
+
+        return mlp(
+                input_layer_neurons=input_neurons,
+                hidden_layer_neurons=hidden_neurons,
+                output_layer_neurons=output_neurons,
+                hidden_weights=hidden,
+                output_weights=output
+                )
+
+    def export_weights(self, hidden_file=None, output_file=None):
+        if (hidden_file is None):
+            hidden_file = 'hidden_layer_weights.npy'
+        if (output_file is None):
+            output_file = 'output_layer_weights.npy'
+        np.save('hidden_layer_weights.npy', self.hidden_weights)
+        np.save('output_layer_weights.npy', self.output_weights)
 
     def forward(self, input_values):
 
@@ -141,7 +180,7 @@ class mlp:
                 delta = y - f_o  # difference between expected and real result
 
                 # squared error += sum delta^2
-                squared_err += np.sum(np.dot(delta, delta))
+                squared_err += np.sum(np.dot(delta, np.transpose(delta)))
 
                 # generalized delta rule
                 delta_o = np.multiply(delta, df_o)
@@ -190,7 +229,11 @@ def xor():
 
     # model = mlp(2, 2, 1)
     # model.backpropagation(np.matrix(X), np.matrix(Y), 0.5, 1e-2)
-    model = mlp.train(X, Y, eta=.1)
+    # model = mlp.train(X, Y, eta=.1)
+    model = mlp.import_weights()
+
+    # print('exporting model')
+    # model.export_weights()
 
     for p in range(len(X)):
         x_p = X[p, :]
@@ -202,5 +245,17 @@ def xor():
         print(f_o)
 
 
+def digit_recognizer_train():
+    dataset = np.loadtxt('01.csv', delimiter=',')
+    X = dataset[:, 1:len(dataset[0])] / 255
+    Y = dataset[:, 0]
+
+    print("X shape: ", X.shape)
+    print("Y shape: ", Y.shape)
+
+    model = mlp.train(X, Y, hidden_layer_neurons=50, eta=0.1, threshold=1e-2)
+    model.export_weights('digit01_hidden', 'digit01_output')
+
+
 if __name__ == "__main__":
-    xor()
+    digit_recognizer_train()
