@@ -1,9 +1,9 @@
+import sys
 import numpy as np
-from math import exp
 
 
 def f(net):
-    return 1 / (1 + exp(-net))
+    return 1 / (1 + np.exp(-net))
 
 
 def df_dnet(net):
@@ -38,9 +38,6 @@ class mlp:
         else:
             self.output_weights = output_weights
 
-        print('hidden: ', self.hidden_weights.shape)
-        print('output: ', self.output_weights.shape)
-
         # Assign layer sizes to instance variables
         self.input_layer_neurons = input_layer_neurons
         self.hidden_layer_neurons = hidden_layer_neurons
@@ -65,15 +62,15 @@ class mlp:
             threshold=1e-2
             ):
         # normalize X and Y
-        X = np.matrix(X)
-        Y = np.transpose(np.matrix(Y))
+        # X = np.matrix(X)
+        # Y = np.matrix(Y)
 
         print("Xmatrix shape: ", X.shape)
         print("Ymatrix shape: ", Y.shape)
 
         # Guess input and output layer sizes
         input_layer_neurons = X.shape[1]
-        output_layer_neurons = Y.shape[0]
+        output_layer_neurons = Y.shape[1]
 
         # Initialize MLP
         model = mlp(
@@ -119,8 +116,12 @@ class mlp:
             hidden_file = 'hidden_layer_weights.npy'
         if (output_file is None):
             output_file = 'output_layer_weights.npy'
-        np.save('hidden_layer_weights.npy', self.hidden_weights)
-        np.save('output_layer_weights.npy', self.output_weights)
+        np.save(hidden_file, self.hidden_weights)
+        np.save(output_file, self.output_weights)
+
+    def predict(self, input_values):
+        (f_h, df_h, f_o, df_o) = self.forward(input_values)
+        return f_o
 
     def forward(self, input_values):
 
@@ -175,7 +176,7 @@ class mlp:
 
                 f_h, df_h, f_o, df_o = self.forward(x)
 
-                f_h = [float(x) for x in f_h]
+                # f_h = [float(x) for x in f_h]
 
                 delta = y - f_o  # difference between expected and real result
 
@@ -193,21 +194,22 @@ class mlp:
 
                 # update output layer weigths
                 a = np.dot(
-                        # np.transpose([np.append(f_h, [1])]), delta_o
-                        np.transpose(np.matrix(f_h + [1])), delta_o
+                        np.transpose([np.append(f_h, [1])]), delta_o
+                        # np.transpose(np.matrix(f_h + [1])), delta_o
                         )
 
                 self.output_weights += eta * np.transpose(a)
                 # update hidden layer weigths
 
-                x = [float(b) for b in np.transpose(x)]
+                # x = [float(b) for b in np.transpose(x)]
 
-                # c = np.transpose([np.append(x, [1])])
+                c = np.transpose([np.append(x, [[1]])])
 
                 self.hidden_weights += eta * np.transpose(
                         np.multiply(
                             delta_h,
-                            np.transpose(np.matrix(np.transpose(x + [1])))
+                            # np.transpose(np.matrix(np.transpose(x + [1])))
+                            c
                             )
                         )
 
@@ -219,43 +221,72 @@ class mlp:
 # ===== end my little poney class
 
 
-def xor():
-    dataset = np.loadtxt('xor.csv', skiprows=1)
+def xor(train=True):
+    dataset = np.loadtxt('xor.csv', skiprows=1, delimiter=',')
     X = dataset[:, 0:len(dataset[0]) - 1]
     Y = dataset[:, len(dataset[0]) - 1:len(dataset[0])]
 
     print(X)
     print(Y)
 
-    # model = mlp(2, 2, 1)
-    # model.backpropagation(np.matrix(X), np.matrix(Y), 0.5, 1e-2)
-    # model = mlp.train(X, Y, eta=.1)
-    model = mlp.import_weights()
-
-    # print('exporting model')
-    # model.export_weights()
+    if (train):
+        model = mlp.train(X, Y, eta=0.2)
+        print('exporting model')
+        model.export_weights()
+    else:
+        model = mlp.import_weights()
 
     for p in range(len(X)):
-        x_p = X[p, :]
-        y_p = Y[p, :]
+        x = X[p, :]
+        y = Y[p, :]
 
-        (f_h, df_h, f_o, df_o) = model.forward(x_p)
-        print(x_p)
-        print(y_p)
-        print(f_o)
+        o = model.predict(x)
+        print(x)
+        print(y)
+        print(o)
 
 
 def digit_recognizer_train():
-    dataset = np.loadtxt('01.csv', delimiter=',')
+    dataset = np.loadtxt('evens01.csv', delimiter=',')
     X = dataset[:, 1:len(dataset[0])] / 255
     Y = dataset[:, 0]
+
+    Y = Y.reshape(len(Y), 1)
 
     print("X shape: ", X.shape)
     print("Y shape: ", Y.shape)
 
-    model = mlp.train(X, Y, hidden_layer_neurons=50, eta=0.1, threshold=1e-2)
-    model.export_weights('digit01_hidden', 'digit01_output')
+    model = mlp.train(X, Y, hidden_layer_neurons=2, eta=0.1, threshold=1e-2)
+    print("Network trained, exporting weights")
+    model.export_weights('digit01_hidden.npy', 'digit01_output.npy')
+
+
+def digit_recognizer_test():
+    dataset = np.loadtxt('odds01.csv', delimiter=',')
+    X = dataset[:, 1:len(dataset[0])] / 255
+    Y = dataset[:, 0]
+
+    Y = Y.reshape(len(Y), 1)
+
+    model = mlp.import_weights('digit01_hidden.npy', 'digit01_output.npy')
+
+    tries = len(X)
+    success = 0
+    for test in range(tries):
+        out = model.predict(X[test])
+        if (Y[test] == round(out[0], 0)):
+            success += 1
+    print('got ', success, '/', tries, ' right: ', success*100/tries, '%')
 
 
 if __name__ == "__main__":
-    digit_recognizer_train()
+    if (sys.argv[1] == 'xor'):
+        if (len(sys.argv) > 2 and sys.argv[2] == 'train'):
+            xor(True)
+        else:
+            xor(False)
+    elif (sys.argv[1] == 'digit'):
+        if (sys.argv[2] == 'train'):
+            digit_recognizer_train()
+        elif (sys.argv[2] == 'test'):
+            digit_recognizer_test()
