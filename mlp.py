@@ -125,7 +125,7 @@ class mlp:
 
     def forward(self, input_values):
 
-        input_values = [float(x) for x in np.transpose(input_values)]
+        # input_values = [float(x) for x in np.transpose(input_values)]
 
         # initialize hidden neuron's fs and dfs
         # f_h = np.zeros(self.hidden_layer_neurons)
@@ -137,8 +137,8 @@ class mlp:
         for neuron in range(self.hidden_layer_neurons):
             # net = f_h * hidden_weights + b
             net_h = np.dot(
-                    # np.append(input_values, [1]),
-                    input_values + [1],
+                    np.append(input_values, [1]),
+                    # input_values + [1],
                     self.hidden_weights[neuron, :]
                     )
             f_h[neuron] = self.f(net_h)
@@ -246,35 +246,61 @@ def xor(train=True):
         print(o)
 
 
-def digit_recognizer_train():
-    dataset = np.loadtxt('evens01.csv', delimiter=',')
-    X = dataset[:, 1:len(dataset[0])] / 255
-    Y = dataset[:, 0]
+def as_bit_array(number):
+    return [
+            (number/8) % 2,
+            (number/4) % 2,
+            (number/2) % 2,
+            (number/1) % 2
+            ]
 
-    Y = Y.reshape(len(Y), 1)
+
+def as_number(bit_array):
+    num = bit_array[3]
+    num += bit_array[2] * 2
+    num += bit_array[1] * 4
+    num += bit_array[0] * 8
+    return num
+
+
+def digit_recognizer_train(test='0123'):
+    dataset = np.loadtxt('evens' + test + '.csv', delimiter=',')
+    X = (np.round(dataset[:, 1:len(dataset[0])] / 255)) * 2 - 1
+    Y = np.matrix([as_bit_array(x) for x in dataset[:, 0]])
+
+    # Y = Y.reshape(len(Y), 1)
 
     print("X shape: ", X.shape)
     print("Y shape: ", Y.shape)
 
-    model = mlp.train(X, Y, hidden_layer_neurons=2, eta=0.1, threshold=1e-2)
-    print("Network trained, exporting weights")
-    model.export_weights('digit01_hidden.npy', 'digit01_output.npy')
+    # model = mlp.import_weights('bicalhohidden.npy', 'bicalhooutput.npy')
+    # model.backpropagation(X, Y, eta=0.05, threshold=1e-2)
+
+    model = mlp.train(X, Y, hidden_layer_neurons=50, eta=0.05, threshold=1e-2)
+    print('Network trained, exporting weights')
+    model.export_weights(
+            'digit' + test + '_hidden.npy',
+            'digit' + test + '_output.npy'
+            )
 
 
-def digit_recognizer_test():
-    dataset = np.loadtxt('odds01.csv', delimiter=',')
-    X = dataset[:, 1:len(dataset[0])] / 255
+def digit_recognizer_test(test='0123'):
+    dataset = np.loadtxt('odds' + test + '.csv', delimiter=',')
+    X = np.round(dataset[:, 1:len(dataset[0])] / 255)
     Y = dataset[:, 0]
 
     Y = Y.reshape(len(Y), 1)
 
-    model = mlp.import_weights('digit01_hidden.npy', 'digit01_output.npy')
+    model = mlp.import_weights(
+            'digit' + test + '_hidden.npy',
+            'digit' + test + '_output.npy'
+            )
 
     tries = len(X)
     success = 0
     for test in range(tries):
         out = model.predict(X[test])
-        if (Y[test] == round(out[0], 0)):
+        if (Y[test] == as_number([round(x) for x in out])):
             success += 1
     print('got ', success, '/', tries, ' right: ', success*100/tries, '%')
 
@@ -287,6 +313,6 @@ if __name__ == "__main__":
             xor(False)
     elif (sys.argv[1] == 'digit'):
         if (sys.argv[2] == 'train'):
-            digit_recognizer_train()
+            digit_recognizer_train('0123')
         elif (sys.argv[2] == 'test'):
-            digit_recognizer_test()
+            digit_recognizer_test('0123')
