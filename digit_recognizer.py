@@ -25,7 +25,7 @@ def digit_recognizer(
         ):
     train_file = 'data/' + file + '/train.csv'
     test_file = 'data/' + file + '/test.csv'
-    saved_model = 'trained/' + file + '.mlp'
+    saved_model = 'trained/' + file + '-' + str(hidden_neurons) + '.mlp'
 
     if mode == 'test' and os.path.isfile(saved_model):
         model = pickle.load(open(saved_model, 'rb'))
@@ -37,7 +37,7 @@ def digit_recognizer(
         #         header=0,
         #         dtype=np.float64
         #         )
-        print('loaded train file!')
+        print('loaded training file!')
         sys.stdout.flush()
         X = np.round(dataset[:, 1:len(dataset[0])] / 255)
         Y = dataset[:, 0]
@@ -53,7 +53,7 @@ def digit_recognizer(
             if not os.path.isdir('trained'):
                 os.mkdir('trained')
 
-        print('training network:')
+        print('training network with ', hidden_neurons, ' hidden neurons:')
         sys.stdout.flush()
         model.learn(X, Y, eta, threshold, saved_model)
     print('trained!')
@@ -79,6 +79,6 @@ def digit_recognizer(
 
 if __name__ == '__main__':
     if len(sys.argv) >= 4:
-        digit_recognizer(sys.argv[1], True, int(sys.argv[3]))
+        digit_recognizer(sys.argv[1], 'recover', int(sys.argv[3]))
     else:
-        digit_recognizer(sys.argv[1], False)
+        digit_recognizer(sys.argv[1], 'test')
