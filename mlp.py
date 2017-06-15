@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 import sys
 
 
@@ -150,7 +151,7 @@ class MLP:  # {
     threshold - Error threshold.  Indicates how low  the error  must be to be
                 for the network to be considered 'good'
     } """
-    def learn(self, X, expected_output, eta=0.1, threshold=1e-2):  # {
+    def learn(self, X, expected_output, eta=0.1, threshold=1e-2, file=''):  # {
         squared_err = threshold * 2
         # while we are not good enough
         while squared_err >= threshold:
@@ -196,6 +197,8 @@ class MLP:  # {
                         ))
             # ==end for test
             squared_err = squared_err / len(X)
+            if file != '':
+                pickle.dump(self, open(file, 'wb'))
             print('Avg Err: ', squared_err)
             sys.stdout.flush()
         # ==end while

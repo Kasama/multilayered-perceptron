@@ -19,12 +19,15 @@ def digit_recognizer_array_to_number(arr):
     return -1
 
 
-def digit_recognizer(file, force_train=False):
+def digit_recognizer(
+        file, mode='train',
+        hidden_neurons=10, eta=0.1, threshold=1e-2
+        ):
     train_file = 'data/' + file + '/train.csv'
     test_file = 'data/' + file + '/test.csv'
     saved_model = 'trained/' + file + '.mlp'
 
-    if os.path.isfile(saved_model) and not force_train:
+    if mode == 'test' and os.path.isfile(saved_model):
         model = pickle.load(open(saved_model, 'rb'))
     else:
         dataset = np.loadtxt(train_file, delimiter=',', skiprows=1)
@@ -39,14 +42,20 @@ def digit_recognizer(file, force_train=False):
         X = np.round(dataset[:, 1:len(dataset[0])] / 255)
         Y = dataset[:, 0]
         Y = np.array([digit_recognizer_number_to_array(int(y)) for y in Y])
-        model = mlp.MLP(
-                input_layer_neurons=X.shape[1],
-                hidden_layer_neurons=10,
-                output_layer_neurons=10
-                )
+        if mode == 'recover' and os.path.isfile(saved_model):
+            model = pickle.load(open(saved_model, 'rb'))
+        else:
+            model = mlp.MLP(
+                    input_layer_neurons=X.shape[1],
+                    hidden_layer_neurons=hidden_neurons,
+                    output_layer_neurons=10
+                    )
+            if not os.path.isdir('trained'):
+                os.mkdir('trained')
 
-        model.learn(X, Y, eta=0.1, threshold=1e-2)
-        pickle.dump(model, open(saved_model, 'wb'))
+        print('training network:')
+        sys.stdout.flush()
+        model.learn(X, Y, eta, threshold, saved_model)
     print('trained!')
     sys.stdout.flush()
 
@@ -69,7 +78,7 @@ def digit_recognizer(file, force_train=False):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) >= 3:
-        digit_recognizer(sys.argv[1], True)
+    if len(sys.argv) >= 4:
+        digit_recognizer(sys.argv[1], True, int(sys.argv[3]))
     else:
         digit_recognizer(sys.argv[1], False)
