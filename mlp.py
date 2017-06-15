@@ -26,6 +26,7 @@ class MLP:  # {
         self.output_layer_neurons = output_layer_neurons
         self.f = f
         self.df = df
+        self.squared_err = -1
 
         """
         As  stated in  "Y. Bengio, X. Glorot, Understanding  the  difficulty of
@@ -152,10 +153,14 @@ class MLP:  # {
                 for the network to be considered 'good'
     } """
     def learn(self, X, expected_output, eta=0.1, threshold=1e-2, file=''):  # {
-        squared_err = threshold * 2
+        if self.squared_err == -1:
+            self.squared_err = threshold * 2
+        else:
+            print('recovered with avg err: ', self.squared_err)
+            sys.stdout.flush()
         # while we are not good enough
-        while squared_err >= threshold:
-            squared_err = 0
+        while self.squared_err >= threshold:
+            self.squared_err = 0
             for test in range(len(X)):
                 x = X[test]
                 y = expected_output[test]
@@ -168,7 +173,7 @@ class MLP:  # {
                 delta, delta_o, delta_h = self.get_deltas(y, f_o, df_h, df_o)
 
                 # Cost function squared error = sum(||delta||^2)
-                squared_err += np.sum(delta ** 2)
+                self.squared_err += np.sum(delta ** 2)
 
                 # Update weights in the output layer
                 # w'[i] = w[i] + (eta * (sum_j(delta_o[i][j] * f_h[i][j])))
@@ -196,10 +201,10 @@ class MLP:  # {
                         eta * np.asmatrix(delta_h).T  # * [1,...]
                         ))
             # ==end for test
-            squared_err = squared_err / len(X)
+            self.squared_err = self.squared_err / len(X)
             if file != '':
                 pickle.dump(self, open(file, 'wb'))
-            print('Avg Err: ', squared_err)
+            print('Avg Err: ', self.squared_err)
             sys.stdout.flush()
         # ==end while
     # ==end learn }

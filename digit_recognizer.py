@@ -79,6 +79,6 @@ def digit_recognizer(
 
 if __name__ == '__main__':
     if len(sys.argv) >= 4:
-        digit_recognizer(sys.argv[1], 'recover', int(sys.argv[3]))
+        digit_recognizer(sys.argv[1], sys.argv[2], int(sys.argv[3]))
     else:
         digit_recognizer(sys.argv[1], 'test')
