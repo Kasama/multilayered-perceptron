@@ -1,318 +1,200 @@
-import sys
 import numpy as np
 
 
-def f(net):
-    return 1 / (1 + np.exp(-net))
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
 
 
-def df_dnet(net):
-    return f(net) * (1 - f(net))
+def df_sigmoid(x):
+    return sigmoid(x) * (1 - sigmoid(x))
 
 
-class mlp:
+class MLP:  # {
     def __init__(
             self,
-            input_layer_neurons=2,
-            hidden_layer_neurons=2,
-            output_layer_neurons=1,
-            f_function=f,
-            df_dnet_function=df_dnet,
-            hidden_weights=None,
-            output_weights=None
-            ):
-
-        # randomly initialize hidden layer weights or use given
-        if (hidden_weights is None):
-            self.hidden_weights = mlp.generate_weights(
-                    hidden_layer_neurons, input_layer_neurons + 1
-                    )
-        else:
-            self.hidden_weights = hidden_weights
-
-        # randomly initialize output layer weights
-        if (output_weights is None):
-            self.output_weights = mlp.generate_weights(
-                    output_layer_neurons, hidden_layer_neurons + 1
-                    )
-        else:
-            self.output_weights = output_weights
-
-        # Assign layer sizes to instance variables
+            input_layer_neurons,
+            hidden_layer_neurons,
+            output_layer_neurons,
+            f=sigmoid,
+            df=df_sigmoid
+            ):  # {
+        # assign parameters to the object
         self.input_layer_neurons = input_layer_neurons
         self.hidden_layer_neurons = hidden_layer_neurons
         self.output_layer_neurons = output_layer_neurons
+        self.f = f
+        self.df = df
 
-        # Assign activation function and derivative to instance variables
-        self.f = f_function
-        self.df_dnet = df_dnet_function
-    # ===== end __init__
+        """
+        As  stated in  "Y. Bengio, X. Glorot, Understanding  the  difficulty of
+        training  deep feedforward  neuralnetworks, AISTATS 2010"  this is  the
+        optimal  way to initialize the weights of a neuralnetwork because it is
+        the closest to a linear function  in a `tanh` or `sigmoid`. If we use a
+        `sigmoid`  function, the min/max  values should  be multiplied  by 4 to
+        better accomodate the curve
+        """
+        max = np.sqrt(6. / (input_layer_neurons + hidden_layer_neurons))
+        # max = 0.5  # use to test later
+        min = - max
 
-    @staticmethod
-    def generate_weights(x, y):
-        return np.random.rand(x, y) - 0.5
+        if (self.f == sigmoid):
+            print("Using sigmoid")
+            max *= 4
+            min *= 4
 
-    @staticmethod
-    def train(
-            X, Y,
-            hidden_layer_neurons=2,
-            f_function=f,
-            df_dnet_function=df_dnet,
-            eta=0.1,
-            threshold=1e-2
-            ):
-        # normalize X and Y
-        # X = np.matrix(X)
-        # Y = np.matrix(Y)
-
-        print("Xmatrix shape: ", X.shape)
-        print("Ymatrix shape: ", Y.shape)
-
-        # Guess input and output layer sizes
-        input_layer_neurons = X.shape[1]
-        output_layer_neurons = Y.shape[1]
-
-        # Initialize MLP
-        model = mlp(
-                input_layer_neurons,
+        # h_neuron[neuron] => array of weights (W_h)
+        self.hidden_layer_weights = (max-min) * np.random.rand(
                 hidden_layer_neurons,
+                input_layer_neurons
+                ) + min
+        # bias[neuron] => bias (b_h)
+        self.hidden_layer_bias = (max-min) * np.random.rand(
+                hidden_layer_neurons,
+                1
+                ) + min
+
+        # o_neuron[n] => array of weights (W_o)
+        self.output_layer_weights = (max-min) * np.random.rand(
                 output_layer_neurons,
-                f_function,
-                df_dnet_function
-                )
+                hidden_layer_neurons
+                ) + min
 
-        # Train the network using given data
-        model.backpropagation(X, Y, eta, threshold)
+        # bias[neuron] => bias (b_o)
+        self.output_layer_bias = (max-min) * np.random.rand(
+                output_layer_neurons,
+                1
+                ) + min
+    # ==end __init__ }
 
-        return model
-    # ===== end train
-
-    @staticmethod
-    def import_weights(hidden_file=None, output_file=None):
-        if (hidden_file is None):
-            hidden_file = 'hidden_layer_weights.npy'
-        if (output_file is None):
-            output_file = 'output_layer_weights.npy'
-        hidden = np.load(hidden_file)
-        output = np.load(output_file)
-
-        hidden_neurons = hidden.shape[0]
-        input_neurons = hidden.shape[1] - 1
-        output_neurons = output.shape[0]
-
-        if (hidden_neurons != (output.shape[1] - 1)):
-            raise "sizes do not match"
-
-        return mlp(
-                input_layer_neurons=input_neurons,
-                hidden_layer_neurons=hidden_neurons,
-                output_layer_neurons=output_neurons,
-                hidden_weights=hidden,
-                output_weights=output
-                )
-
-    def export_weights(self, hidden_file=None, output_file=None):
-        if (hidden_file is None):
-            hidden_file = 'hidden_layer_weights.npy'
-        if (output_file is None):
-            output_file = 'output_layer_weights.npy'
-        np.save(hidden_file, self.hidden_weights)
-        np.save(output_file, self.output_weights)
-
-    def predict(self, input_values):
-        (f_h, df_h, f_o, df_o) = self.forward(input_values)
-        return f_o
-
-    def forward(self, input_values):
-
-        # input_values = [float(x) for x in np.transpose(input_values)]
-
-        # initialize hidden neuron's fs and dfs
-        # f_h = np.zeros(self.hidden_layer_neurons)
-        # df_h = np.zeros(self.hidden_layer_neurons)
-        f_h = [0]*self.hidden_layer_neurons
-        df_h = [0]*self.hidden_layer_neurons
-
-        # for each hidden neuron
+    """ feed forward the input to get the output{
+    feed forward to propagate the input through the network,
+    producing activation functions and their derivatives
+    --- arguments ---
+    X: one test case, must be the same size as input_neurons
+    } """
+    def feed_forward(self, X):  # {
+        # from the input layer to hidden:
+        f_h = np.zeros(self.hidden_layer_neurons)
+        df_h = np.zeros(self.hidden_layer_neurons)
+        # for each hidden neuron, calculate net, f(net) and df(net)/dnet
         for neuron in range(self.hidden_layer_neurons):
-            # net = f_h * hidden_weights + b
-            net_h = np.dot(
-                    np.append(input_values, [1]),
-                    # input_values + [1],
-                    self.hidden_weights[neuron, :]
-                    )
-            f_h[neuron] = self.f(net_h)
-            df_h[neuron] = self.df_dnet(net_h)
-        # ===== end for
+            W = self.hidden_layer_weights[neuron]
+            b = self.hidden_layer_bias[neuron]
+            # net = (input . W) + b
+            net = X.dot(W) + b
+            f_h[neuron] = self.f(net)
+            df_h[neuron] = self.df(net)
+        # ==end for
 
-        # initialize output neuron's fs and dfs
-        # f_o = np.zeros(self.output_layer_neurons)
-        # df_o = np.zeros(self.output_layer_neurons)
-        f_o = [0]*self.output_layer_neurons
-        df_o = [0]*self.output_layer_neurons
-
-        # for each output neuron
+        # from the hidden layer to output:
+        f_o = np.zeros(self.output_layer_neurons)
+        df_o = np.zeros(self.output_layer_neurons)
+        # for each output neuron, calculate net, f(net) and df(net)/dnet
         for neuron in range(self.output_layer_neurons):
-            # net = f_h * output_weights + b
-            net_o = np.dot(
-                    np.append(f_h, [1]),
-                    self.output_weights[neuron, :]
-                    )
-            f_o[neuron] = self.f(net_o)
-            df_o[neuron] = self.df_dnet(net_o)
-        # ===== end for
-
+            W = self.output_layer_weights[neuron]
+            b = self.output_layer_bias[neuron]
+            # net = (f_h . W) + b
+            net = f_h.dot(W) + b
+            f_o[neuron] = self.f(net)
+            df_o[neuron] = self.df(net)
+        # ==end for
         return (f_h, df_h, f_o, df_o)
-    # ===== end forward
+    # ==end feed_forward }
 
-    def backpropagation(self, X, Y, eta=0.1, threshold=1e-2):
-        squared_err = 2 * threshold
+    """ calculate deltas {
+    Calculate the  delta for  each layer, based  on the  local error  using the
+    generalized delta rule to solve the gradient descendent
+    --- arguments ---
+    expected - the expected output. Must  be of length  equal to the  number of
+               output_layer_neurons
+    out - the actual output  layer values. Must be the  same length as expected
+    df_h - hidden layer  activation derivatives. Must be the same length as the
+           number of hidden_layer_neurons
+    df_o - output layer  activation derivatives. Must be the same length as the
+           number of output_layer_neurons
+    } """
+    def get_deltas(self, expected, out, df_h, df_o):  # {
+        # delta = expected_out - actual_out
+        delta = expected - out
 
-        while squared_err > threshold:
+        # Apply generalized delta rule to the output layer
+        delta_o = np.multiply(delta, df_o)
+        # Apply generalized delta rule to the hidden layer
+        delta_h = np.multiply(
+                (delta_o @ self.output_layer_weights),
+                df_h
+                )
+        return (delta, delta_o, delta_h)
+    # ==end get_deltas }
+
+    """ learn using the backpropagation algorithm {
+    Run feed_forward for  the whole  dataset, updating the error every round to
+    get an average  error. This total  will be used to  determin how  good  the
+    network is at solving  the problem. When  it is good (error < threshold) we
+    can stop training.
+    Every feed forward round, the weights of each  neuron get updated using the
+    backpropagation  algorithm, witch uses  the gradient descendant to find the
+    direction of the minimum  for the error function. In the  case of a average
+    square error, this gradient is calculated by multiplying each error by  its
+    correspondent activation function derivative
+    --- arguments ---
+    X - An array of test cases. Each X[i] must be a test case of length equal
+        to the number of input_neurons
+    expected_output - An array of expected results, each corresponding to one
+                      test case in X. One test case must have length equal to
+                      the number of output_neurons
+    eta - Learning rate. Is  a factor to how much  the neuron's  weights  are
+          going to be changed. Must be in range (0,1]
+    threshold - Error threshold.  Indicates how low  the error  must be to be
+                for the network to be considered 'good'
+    } """
+    def learn(self, X, expected_output, eta=0.1, threshold=1e-2):  # {
+        squared_err = threshold * 2
+        # while we are not good enough
+        while squared_err >= threshold:
             squared_err = 0
             for test in range(len(X)):
-                x = X[test]  # get test line
-                y = Y[test]  # get expected result line
+                x = X[test]
+                y = expected_output[test]
 
-                f_h, df_h, f_o, df_o = self.forward(x)
+                # run feed_forward for the test case to get activation
+                # value and derivatives for all layers
+                (f_h, df_h, f_o, df_o) = self.feed_forward(x)
 
-                # f_h = [float(x) for x in f_h]
+                # calculate gradient descendent using generalized delta rule
+                delta, delta_o, delta_h = self.get_deltas(y, f_o, df_h, df_o)
 
-                delta = y - f_o  # difference between expected and real result
+                # Cost function squared error = sum(||delta||^2)
+                squared_err += np.sum(delta ** 2)
 
-                # squared error += sum delta^2
-                squared_err += np.sum(np.dot(delta, np.transpose(delta)))
-
-                # generalized delta rule
-                delta_o = np.multiply(delta, df_o)
-
-                w_length = self.hidden_layer_neurons - 1
-                delta_h = np.multiply(
-                        df_h,
-                        np.dot(delta_o, self.output_weights[:, w_length])
-                        )
-
-                # update output layer weigths
-                a = np.dot(
-                        np.transpose([np.append(f_h, [1])]), delta_o
-                        # np.transpose(np.matrix(f_h + [1])), delta_o
-                        )
-
-                self.output_weights += eta * np.transpose(a)
-                # update hidden layer weigths
-
-                # x = [float(b) for b in np.transpose(x)]
-
-                c = np.transpose([np.append(x, [[1]])])
-
-                self.hidden_weights += eta * np.transpose(
-                        np.multiply(
-                            delta_h,
-                            # np.transpose(np.matrix(np.transpose(x + [1])))
-                            c
+                # Update weights in the output layer
+                # w'[i] = w[i] + (eta * (sum_j(delta_o[i][j] * f_h[i][j])))
+                self.output_layer_weights = np.asarray(
+                        self.output_layer_weights + (
+                            eta * (np.asmatrix(delta_o).T @ np.asmatrix(f_h))
                             )
                         )
+                # Update bias in the output layer
+                # b'[i] = b[i] + (eta * delta_o[i])
+                self.output_layer_bias = np.asarray(self.output_layer_bias + (
+                        eta * np.asmatrix(delta_o).T  # * [1,...]
+                        ))
 
-            # ===== end for
-            squared_err = squared_err/X.shape[0]
-            print("Average squared error: " + str(squared_err))
-        # ===== end while
-    # ===== end backpropagation
-# ===== end my little poney class
-
-
-def xor(train=True):
-    dataset = np.loadtxt('xor.csv', skiprows=1, delimiter=',')
-    X = dataset[:, 0:len(dataset[0]) - 1]
-    Y = dataset[:, len(dataset[0]) - 1:len(dataset[0])]
-
-    print(X)
-    print(Y)
-
-    if (train):
-        model = mlp.train(X, Y, eta=0.2)
-        print('exporting model')
-        model.export_weights()
-    else:
-        model = mlp.import_weights()
-
-    for p in range(len(X)):
-        x = X[p, :]
-        y = Y[p, :]
-
-        o = model.predict(x)
-        print(x)
-        print(y)
-        print(o)
-
-
-def as_bit_array(number):
-    return [
-            (number/8) % 2,
-            (number/4) % 2,
-            (number/2) % 2,
-            (number/1) % 2
-            ]
-
-
-def as_number(bit_array):
-    num = bit_array[3]
-    num += bit_array[2] * 2
-    num += bit_array[1] * 4
-    num += bit_array[0] * 8
-    return num
-
-
-def digit_recognizer_train(test='0123'):
-    dataset = np.loadtxt('evens' + test + '.csv', delimiter=',')
-    X = (np.round(dataset[:, 1:len(dataset[0])] / 255)) * 2 - 1
-    Y = np.matrix([as_bit_array(x) for x in dataset[:, 0]])
-
-    # Y = Y.reshape(len(Y), 1)
-
-    print("X shape: ", X.shape)
-    print("Y shape: ", Y.shape)
-
-    # model = mlp.import_weights('bicalhohidden.npy', 'bicalhooutput.npy')
-    # model.backpropagation(X, Y, eta=0.05, threshold=1e-2)
-
-    model = mlp.train(X, Y, hidden_layer_neurons=50, eta=0.05, threshold=1e-2)
-    print('Network trained, exporting weights')
-    model.export_weights(
-            'digit' + test + '_hidden.npy',
-            'digit' + test + '_output.npy'
-            )
-
-
-def digit_recognizer_test(test='0123'):
-    dataset = np.loadtxt('odds' + test + '.csv', delimiter=',')
-    X = np.round(dataset[:, 1:len(dataset[0])] / 255)
-    Y = dataset[:, 0]
-
-    Y = Y.reshape(len(Y), 1)
-
-    model = mlp.import_weights(
-            'digit' + test + '_hidden.npy',
-            'digit' + test + '_output.npy'
-            )
-
-    tries = len(X)
-    success = 0
-    for test in range(tries):
-        out = model.predict(X[test])
-        if (Y[test] == as_number([round(x) for x in out])):
-            success += 1
-    print('got ', success, '/', tries, ' right: ', success*100/tries, '%')
-
-
-if __name__ == "__main__":
-    if (sys.argv[1] == 'xor'):
-        if (len(sys.argv) > 2 and sys.argv[2] == 'train'):
-            xor(True)
-        else:
-            xor(False)
-    elif (sys.argv[1] == 'digit'):
-        if (sys.argv[2] == 'train'):
-            digit_recognizer_train('0123')
-        elif (sys.argv[2] == 'test'):
-            digit_recognizer_test('0123')
+                # Update weights in the hidden layer
+                # w'[i] = w[i] + (eta * (sum_j(delta_h[i][j] * x[i][j])))
+                self.hidden_layer_weights = np.asarray(
+                        self.hidden_layer_weights + (
+                            eta * (np.asmatrix(delta_h).T @ np.asmatrix(x))
+                            )
+                        )
+                # Update bias in the hidden layer
+                # b'[i] = b[i] + (eta * delta_h[i])
+                self.hidden_layer_bias = np.asarray(self.hidden_layer_bias + (
+                        eta * np.asmatrix(delta_h).T  # * [1,...]
+                        ))
+            # ==end for test
+            squared_err = squared_err / len(X)
+            print('Avg Err: ', squared_err)
+        # ==end while
+    # ==end learn }
+# ==end MLP }
