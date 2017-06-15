@@ -3,7 +3,7 @@ import sys
 import mlp
 import pickle
 import numpy as np
-import pandas as pd
+# import pandas as pd
 
 
 def digit_recognizer_number_to_array(y):
@@ -35,6 +35,7 @@ def digit_recognizer(file, force_train=False):
         #         dtype=np.float64
         #         )
         print('loaded train file!')
+        sys.stdout.flush()
         X = np.round(dataset[:, 1:len(dataset[0])] / 255)
         Y = dataset[:, 0]
         Y = np.array([digit_recognizer_number_to_array(int(y)) for y in Y])
@@ -47,9 +48,11 @@ def digit_recognizer(file, force_train=False):
         model.learn(X, Y, eta=0.1, threshold=1e-2)
         pickle.dump(model, open(saved_model, 'wb'))
     print('trained!')
+    sys.stdout.flush()
 
     dataset = np.loadtxt(test_file, delimiter=',', skiprows=0)
     print('loaded test file!')
+    sys.stdout.flush()
     X = (dataset[:, 1:len(dataset[0])] / 255)
     Y = dataset[:, 0]
 
@@ -62,6 +65,7 @@ def digit_recognizer(file, force_train=False):
         if(digit_recognizer_array_to_number(np.round(f_o)) == y):
             success += 1
     print('got ', success, '/', tries, ': ', success*100/tries)
+    sys.stdout.flush()
 
 
 if __name__ == '__main__':

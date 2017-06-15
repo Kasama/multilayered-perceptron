@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 
 
 def sigmoid(x):
@@ -39,6 +40,7 @@ class MLP:  # {
 
         if (self.f == sigmoid):
             print("Using sigmoid")
+            sys.stdout.flush()
             max *= 4
             min *= 4
 
@@ -195,6 +197,7 @@ class MLP:  # {
             # ==end for test
             squared_err = squared_err / len(X)
             print('Avg Err: ', squared_err)
+            sys.stdout.flush()
         # ==end while
     # ==end learn }
 # ==end MLP }
