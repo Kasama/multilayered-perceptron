@@ -13,10 +13,7 @@ def digit_recognizer_number_to_array(y):
 
 
 def digit_recognizer_array_to_number(arr):
-    for i in range(len(arr)):
-        if (arr[i] == 1):
-            return (i+1) % 10
-    return -1
+    return (arr.argmax() + 1) % 10
 
 
 def digit_recognizer(
@@ -25,18 +22,13 @@ def digit_recognizer(
         ):
     train_file = 'data/' + file + '/train.csv'
     test_file = 'data/' + file + '/test.csv'
+    predict_file = 'data/' + file + '/predict.csv'
     saved_model = 'trained/' + file + '-' + str(hidden_neurons) + '.mlp'
 
-    if mode == 'test' and os.path.isfile(saved_model):
+    if (mode == 'test' or mode == 'predict') and os.path.isfile(saved_model):
         model = pickle.load(open(saved_model, 'rb'))
     else:
         dataset = np.loadtxt(train_file, delimiter=',', skiprows=1)
-        # dataset = pd.read_csv(
-        #         train_file,
-        #         sep=',',
-        #         header=0,
-        #         dtype=np.float64
-        #         )
         print('loaded training file!')
         sys.stdout.flush()
         X = np.round(dataset[:, 1:len(dataset[0])] / 255)
@@ -56,25 +48,42 @@ def digit_recognizer(
         print('training network with ', hidden_neurons, ' hidden neurons:')
         sys.stdout.flush()
         model.learn(X, Y, eta, threshold, saved_model)
-    print('trained!')
+    if (mode != 'predict'):
+        print('trained!')
     sys.stdout.flush()
 
-    dataset = np.loadtxt(test_file, delimiter=',', skiprows=0)
-    print('loaded test file!')
-    sys.stdout.flush()
-    X = (dataset[:, 1:len(dataset[0])] / 255)
-    Y = dataset[:, 0]
+    if (mode == 'test'):
+        dataset = np.loadtxt(test_file, delimiter=',', skiprows=0)
+        print('loaded test file!')
+        sys.stdout.flush()
+        X = (dataset[:, 1:len(dataset[0])] / 255)
+        Y = dataset[:, 0]
 
-    tries = len(X)
-    success = 0
-    for test in range(tries):
-        x = X[test]
-        y = int(Y[test])
-        f_h, df_h, f_o, df_o = model.feed_forward(x)
-        if(digit_recognizer_array_to_number(np.round(f_o)) == y):
-            success += 1
-    print('got ', success, '/', tries, ': ', success*100/tries)
-    sys.stdout.flush()
+        tries = len(X)
+        success = 0
+        for test in range(tries):
+            x = X[test]
+            y = int(Y[test])
+            f_h, df_h, f_o, df_o = model.feed_forward(x)
+            if(digit_recognizer_array_to_number(np.round(f_o)) == y):
+                success += 1
+        print('got ', success, '/', tries, ': ', success*100/tries)
+        sys.stdout.flush()
+    elif (mode == 'predict'):
+        dataset = np.loadtxt(predict_file, delimiter=',', skiprows=1)
+        # print('loaded test file!')
+        sys.stdout.flush()
+        X = (dataset / 255)
+        print('ImageId,Label')
+        for test in range(len(X)):
+            x = X[test]
+            f_h, df_h, f_o, df_o = model.feed_forward(x)
+            print(
+                    str(test + 1) +
+                    ',' +
+                    str(digit_recognizer_array_to_number(np.round(f_o)))
+                    )
+            sys.stdout.flush()
 
 
 if __name__ == '__main__':
