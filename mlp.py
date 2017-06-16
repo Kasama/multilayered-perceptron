@@ -142,14 +142,14 @@ class MLP:  # {
     square error, this gradient is calculated by multiplying each error by  its
     correspondent activation function derivative
     --- arguments ---
-    X - An array of test cases. Each X[i] must be a test case of length equal
+    X - An array of test  cases. Each X[i] must  be a test case of length equal
         to the number of input_neurons
-    expected_output - An array of expected results, each corresponding to one
-                      test case in X. One test case must have length equal to
+    expected_output - An array of  expected results, each  corresponding to one
+                      test  case in X. One test  case must have length equal to
                       the number of output_neurons
-    eta - Learning rate. Is  a factor to how much  the neuron's  weights  are
+    eta - Learning  rate. Is  a factor to  how much  the neuron's  weights  are
           going to be changed. Must be in range (0,1]
-    threshold - Error threshold.  Indicates how low  the error  must be to be
+    threshold - Error threshold.  Indicates  how low  the error  must be  to be
                 for the network to be considered 'good'
     } """
     def learn(self, X, expected_output, eta=0.1, threshold=1e-2, file=''):  # {
