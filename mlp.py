@@ -34,7 +34,7 @@ class MLP:  # {
         optimal  way to initialize the weights of a neuralnetwork because it is
         the closest to a linear function  in a `tanh` or `sigmoid`. If we use a
         `sigmoid`  function, the min/max  values should  be multiplied  by 4 to
-        better accomodate the curve
+        better accommodate the curve
         """
         max = np.sqrt(6. / (input_layer_neurons + hidden_layer_neurons))
         # max = 0.5  # use to test later
@@ -133,7 +133,7 @@ class MLP:  # {
 
     """ learn using the backpropagation algorithm {
     Run feed_forward for  the whole  dataset, updating the error every round to
-    get an average  error. This total  will be used to  determin how  good  the
+    get an average  error. This total  will be used to determine how  good  the
     network is at solving  the problem. When  it is good (error < threshold) we
     can stop training.
     Every feed forward round, the weights of each  neuron get updated using the
