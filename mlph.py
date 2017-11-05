@@ -1,7 +1,8 @@
+import threading
 import numpy as np
 import pickle
 import sys
-
+import time
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -16,6 +17,7 @@ class MLP:  # {
             self,
             input_layer_neurons,
             hidden_layer_neurons,
+            hidden_layers,
             output_layer_neurons,
             f=sigmoid,
             df=df_sigmoid
@@ -23,6 +25,7 @@ class MLP:  # {
         # assign parameters to the object
         self.input_layer_neurons = input_layer_neurons
         self.hidden_layer_neurons = hidden_layer_neurons
+        self.hidden_layers = hidden_layers
         self.output_layer_neurons = output_layer_neurons
         self.f = f
         self.df = df
@@ -41,41 +44,31 @@ class MLP:  # {
         min = - max
 
         if (self.f == sigmoid):
-<<<<<<< HEAD
-=======
-            print("Using sigmoid")
->>>>>>> a9805656497236f26a5b0198d0cf6d0df6d39585
             sys.stdout.flush()
             max *= 4
             min *= 4
 
         # h_neuron[neuron] => array of weights (W_h)
         self.hidden_layer_weights = (max-min) * np.random.rand(
+                hidden_layers,
                 hidden_layer_neurons,
-                input_layer_neurons
-                ) + min
+                input_layer_neurons) + min
+
         # bias[neuron] => bias (b_h)
         self.hidden_layer_bias = (max-min) * np.random.rand(
+                hidden_layers,
                 hidden_layer_neurons,
-                1
-                ) + min
+                1) + min
 
         # o_neuron[n] => array of weights (W_o)
         self.output_layer_weights = (max-min) * np.random.rand(
                 output_layer_neurons,
-                hidden_layer_neurons
-                ) + min
+                hidden_layer_neurons) + min
 
         # bias[neuron] => bias (b_o)
         self.output_layer_bias = (max-min) * np.random.rand(
                 output_layer_neurons,
-                1
-                ) + min
-    # ==end __init__ }
-<<<<<<< HEAD
-=======
-
->>>>>>> a9805656497236f26a5b0198d0cf6d0df6d39585
+                1) + min
     """ feed forward the input to get the output{
     feed forward to propagate the input through the network,
     producing activation functions and their derivatives
@@ -86,30 +79,33 @@ class MLP:  # {
         # from the input layer to hidden:
         f_h = np.zeros(self.hidden_layer_neurons)
         df_h = np.zeros(self.hidden_layer_neurons)
-        # for each hidden neuron, calculate net, f(net) and df(net)/dnet
-        for neuron in range(self.hidden_layer_neurons):
-            W = self.hidden_layer_weights[neuron]
-            b = self.hidden_layer_bias[neuron]
-            # net = (input . W) + b
-            net = X.dot(W) + b
-            f_h[neuron] = self.f(net)
-            df_h[neuron] = self.df(net)
-        # ==end for
+        # for each layer
+        for layer in range(self.hidden_layers):
+            # for each hidden neuron, calculate net, f(net) and df(net)/dnet
+            for neuron in range(self.hidden_layer_neurons):
+                W = self.hidden_layer_weights[layer][neuron]
+                b = self.hidden_layer_bias[layer][neuron]
+                # net = (input . W) + b
+                net = X.dot(W) + b
+                f_h[neuron] = self.f(net)
+                df_h[neuron] = self.df(net)
 
-        # from the hidden layer to output:
-        f_o = np.zeros(self.output_layer_neurons)
-        df_o = np.zeros(self.output_layer_neurons)
-        # for each output neuron, calculate net, f(net) and df(net)/dnet
-        for neuron in range(self.output_layer_neurons):
-            W = self.output_layer_weights[neuron]
-            b = self.output_layer_bias[neuron]
-            # net = (f_h . W) + b
-            net = f_h.dot(W) + b
-            f_o[neuron] = self.f(net)
-            df_o[neuron] = self.df(net)
-        # ==end for
+            # from the hidden layer to the next:
+            f_o = np.zeros(self.output_layer_neurons)
+            df_o = np.zeros(self.output_layer_neurons)
+            
+            # from the hidden layer to output:
+            f_o = np.zeros(self.output_layer_neurons)
+            df_o = np.zeros(self.output_layer_neurons)
+            # for each output neuron, calculate net, f(net) and df(net)/dnet
+            for neuron in range(self.output_layer_neurons):
+                W = self.output_layer_weights[neuron]
+                b = self.output_layer_bias[neuron]
+                # net = (f_h . W) + b
+                net = f_h.dot(W) + b
+                f_o[neuron] = self.f(net)
+                df_o[neuron] = self.df(net)
         return (f_h, df_h, f_o, df_o)
-    # ==end feed_forward }
 
     """ calculate deltas {
     Calculate the  delta for  each layer, based  on the  local error  using the
@@ -158,11 +154,7 @@ class MLP:  # {
     threshold - Error threshold.  Indicates  how low  the error  must be  to be
                 for the network to be considered 'good'
     } """
-<<<<<<< HEAD
-    def learn(self, X, expected_output, eta=0.1, threshold=1e-4, file=''):  # {
-=======
-    def learn(self, X, expected_output, eta=0.1, threshold=1e-2, file=''):  # {
->>>>>>> a9805656497236f26a5b0198d0cf6d0df6d39585
+    def learn(self, X, expected_output, eta=0.1, threshold=1e-4, file='', verbose=True):  # {
         if self.squared_err == -1:
             self.squared_err = threshold * 2
         else:
@@ -200,22 +192,44 @@ class MLP:  # {
 
                 # Update weights in the hidden layer
                 # w'[i] = w[i] + (eta * (sum_j(delta_h[i][j] * x[i][j])))
-                self.hidden_layer_weights = np.asarray(
-                        self.hidden_layer_weights + (
-                            eta * (np.asmatrix(delta_h).T @ np.asmatrix(x))
+                for layer in range(self.hidden_layers):
+                    self.hidden_layer_weights[layer] = np.asarray(
+                            self.hidden_layer_weights[layer] + (
+                                eta * (np.asmatrix(delta_h).T @ np.asmatrix(x))
+                                )
                             )
-                        )
-                # Update bias in the hidden layer
-                # b'[i] = b[i] + (eta * delta_h[i])
-                self.hidden_layer_bias = np.asarray(self.hidden_layer_bias + (
-                        eta * np.asmatrix(delta_h).T  # * [1,...]
-                        ))
+                    # Update bias in the hidden layer
+                    # b'[i] = b[i] + (eta * delta_h[i])
+                    self.hidden_layer_bias[layer] = np.asarray(self.hidden_layer_bias[layer] + (
+                            eta * np.asmatrix(delta_h).T  # * [1,...]
+                            ))
             # ==end for test
             self.squared_err = self.squared_err / len(X)
             if file != '':
                 pickle.dump(self, open(file, 'wb'))
-            print('Avg Err: ', self.squared_err)
+            if verbose: print('Avg Err: ', self.squared_err)
             sys.stdout.flush()
         # ==end while
     # ==end learn }
 # ==end MLP }
+
+if __name__ == '__main__':
+    bucket = {}
+    tc = [0]
+
+    def time_h_mlp(h):
+        mlp = MLP(2, 3, h, 1)
+        x = np.array([[1,0],[0,0],[0,1],[1,1]])
+        y = np.array([1,0,1,0])
+        s = time.time()
+        mlp.learn(x,y,threshold=1e-2,verbose=False)
+        if h not in bucket: bucket[h]=[]
+        bucket[h].append(time.time() - s)
+        tc[0]-=1
+        print(h, np.average(bucket[h]), 'Threads left:', tc)
+
+    for h in range(1,6):
+        for i in range(3):
+            t = threading.Thread(target=time_h_mlp, args=[h])
+            t.start()
+            tc[0]+=1
