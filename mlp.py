@@ -41,6 +41,10 @@ class MLP:  # {
         min = - max
 
         if (self.f == sigmoid):
+<<<<<<< HEAD
+=======
+            print("Using sigmoid")
+>>>>>>> a9805656497236f26a5b0198d0cf6d0df6d39585
             sys.stdout.flush()
             max *= 4
             min *= 4
@@ -68,6 +72,10 @@ class MLP:  # {
                 1
                 ) + min
     # ==end __init__ }
+<<<<<<< HEAD
+=======
+
+>>>>>>> a9805656497236f26a5b0198d0cf6d0df6d39585
     """ feed forward the input to get the output{
     feed forward to propagate the input through the network,
     producing activation functions and their derivatives
@@ -150,7 +158,11 @@ class MLP:  # {
     threshold - Error threshold.  Indicates  how low  the error  must be  to be
                 for the network to be considered 'good'
     } """
+<<<<<<< HEAD
     def learn(self, X, expected_output, eta=0.1, threshold=1e-4, file=''):  # {
+=======
+    def learn(self, X, expected_output, eta=0.1, threshold=1e-2, file=''):  # {
+>>>>>>> a9805656497236f26a5b0198d0cf6d0df6d39585
         if self.squared_err == -1:
             self.squared_err = threshold * 2
         else:
